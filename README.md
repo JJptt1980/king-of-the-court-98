@@ -52,3 +52,7 @@ src/app-classic.html    舊版介面（保留參考）
 android/                Capacitor Android 專案
 .github/workflows/      GitHub Pages 自動部署
 ```
+
+## 授權
+
+[MIT License](LICENSE)。可以自由使用、修改、散布，只要保留版權聲明。

@@ -18,5 +18,6 @@
     "@capacitor/cli": "8.6.0",
     "sharp": "0.35.5"
   },
-  "description": "King of the Court 1v1 輪轉單挑記分板（網頁版 + Android）"
+  "description": "King of the Court 1v1 輪轉單挑記分板（網頁版 + Android）",
+  "license": "MIT"
 }

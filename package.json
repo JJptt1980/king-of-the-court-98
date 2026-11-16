@@ -1,6 +1,6 @@
 {
   "name": "king-of-the-court",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "scripts": {
     "build:web": "node build-web.mjs",

@@ -59,6 +59,8 @@ header{display:flex;align-items:stretch;justify-content:space-between;gap:0;flex
 .panel > .row:first-child > .hint,.panel > .row:first-child > .row{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .panel > .row:first-child > .row{max-width:none;flex-wrap:wrap;white-space:normal}
 .panel > .row:first-child:has(> .row){flex-wrap:wrap}
+.panel > .row:first-child:has(> .row) > h2{min-width:8.5em}
+.panel > .row:first-child:has(> .row) > .row{padding-bottom:2px}
 
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .field{display:flex;flex-direction:column;gap:8px}
@@ -257,6 +259,18 @@ tr.win td.n::after{content:" ★"}
 .awards .aw{font-weight:900;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .awards .av{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (prefers-reduced-motion: reduce){.reward.big::after{animation:none}}
+.live{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:var(--led-bg);color:#fff;border:2px solid var(--rule);box-shadow:var(--shadow);padding:10px 12px}
+.live > div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.live b{font-size:15px}
+.live-tag{font-family:var(--f-pixel);font-size:10px;letter-spacing:.1em;color:var(--led);animation:blink 1.2s steps(2) infinite}
+.live .btn.go{min-height:44px;font-size:16px}
+.unf{font-family:var(--f-pixel);font-size:10px;border:1px solid var(--rule);padding:1px 6px;margin-right:4px;vertical-align:2px}
+@media (prefers-reduced-motion: reduce){.live-tag{animation:none}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;font-weight:900;border:1.5px solid var(--rule);padding:1px 8px}
+.chip.big{background:var(--led-bg);color:var(--led);border-color:var(--rule)}
+.hq{font-size:13px;font-weight:700;color:var(--ink)}
+.replay-date{margin:0 -16px;padding:4px 10px;font-size:12px;color:var(--muted);border-bottom:1px dotted var(--rule)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 16px;font-weight:700;font-size:14px;z-index:30;border:2px solid var(--paper);box-shadow:0 0 0 2px var(--ink)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 @media (max-width:400px){.side .pts{font-size:84px}.act{min-height:84px}.brand .v98{font-family:var(--f-led);font-size:24px;font-weight:400;color:var(--ink);letter-spacing:0;vertical-align:-2px}
@@ -310,7 +324,7 @@ let S=load()||{
 if(S.example){S.players=defaults(5);delete S.example}
 if(!S.groups)S.groups=defaultGroups();
 if(S.players.every((p,i)=>p.name==='自訂 '+(i+1)))S.players.forEach((p,i)=>p.name='球員 '+(i+1));
-let view='game';
+let view='home';
 let ui={confirm:null,dribble:0,toast:null,paste:false,group:null,renaming:false};
 
 function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null}catch(e){return null}}
@@ -328,7 +342,7 @@ function startGame(order){
   const g={id:uid(),start:Date.now(),rules:{...S.settings},roster,order:roster.map(p=>p.id),
     scores:{},stats:{},spotIdx:0,log:[],undo:[],done:false};
   roster.forEach(p=>{g.scores[p.id]=0;g.stats[p.id]=newStats()});
-  S.game=g;ui.dribble=0;save();wake();announce();
+  S.game=g;ui.dribble=0;view='game';save();wake();announce();
 }
 function snapshot(g){const {undo,...rest}=g;return JSON.stringify(rest)}
 function play(type,pts){
@@ -363,20 +377,30 @@ function undo(){
 function curSpot(g){const set=SPOT_SETS[g.rules.spots]||[];return set.length?set[g.spotIdx%set.length]:''}
 function finish(winner){
   const g=S.game;g.done=true;g.winner=winner;g.end=Date.now();
-  const rec={id:g.id,start:g.start,end:g.end,rules:g.rules,winner,
-    players:g.roster.map(p=>({id:p.id,name:p.name,score:g.scores[p.id],...g.stats[p.id]})),
-    possessions:g.log.length,log:g.log.map(e=>({...e}))};
-  S.history=S.history.filter(h=>h.id!==g.id);S.history.unshift(rec);
-  S.history=S.history.slice(0,500);
+  const rec=recordOf(g,winner);
+  saveRecord(rec);
   g.quote=QUOTES[Math.floor(Math.random()*QUOTES.length)];
   g.winStreak=winStreakOf(nameOf(winner));
   g.rewards=rewardsFor(g,winner);
-  rec.winStreak=g.winStreak;
+  rec.winStreak=g.winStreak;rec.quote=g.quote;rec.rewards=g.rewards.map(({say,...r})=>r);
   const top=g.rewards[0];
   speak(nameOf(winner)+' 拿到 '+g.scores[winner]+' 分，單挑之王！'+(top?top.say:''));
 }
+function recordOf(g,winner){
+  return {id:g.id,start:g.start,end:g.end||Date.now(),rules:g.rules,winner,
+    players:g.roster.map(p=>({id:p.id,name:p.name,score:g.scores[p.id],...g.stats[p.id]})),
+    possessions:g.log.length,log:g.log.map(e=>({...e}))};
+}
+function saveRecord(rec){S.history=S.history.filter(h=>h.id!==rec.id);S.history.unshift(rec);S.history=S.history.slice(0,500)}
+// End a game before anyone reaches the target. record=true keeps it (no winner) for stats and the daily summary.
+function endEarly(record){
+  const g=S.game;
+  if(g&&!g.done&&record&&g.log.length){const rec=recordOf(g,null);rec.unfinished=true;saveRecord(rec)}
+  S.game=null;ui.confirm=null;view='home';save();render();
+  if(g&&record&&g.log.length)toast('已記錄為未完成，會算進今日總結');
+}
 const winnerName=h=>{const p=h.players.find(p=>p.id===h.winner);return p?p.name:''};
-function winStreakOf(name){let n=0;for(const h of S.history){if(winnerName(h)===name)n++;else break}return n}
+function winStreakOf(name){let n=0;for(const h of S.history){if(h.unfinished)continue;if(winnerName(h)===name)n++;else break}return n}
 
 /* ---------- 心靈雞湯 + 獎勵 ---------- */
 const QUOTES=[
@@ -423,11 +447,11 @@ function daySummary(key){
   const P={};
   let run={name:'',n:0},bestRun={name:'',n:0};
   games.forEach(h=>{
-    const wn=winnerName(h);
+    if(!h.unfinished){const wn=winnerName(h);
     if(wn===run.name)run.n++;else run={name:wn,n:1};
-    if(run.n>bestRun.n)bestRun={...run};
+    if(run.n>bestRun.n)bestRun={...run};}
     h.players.forEach(p=>{const a=P[p.name]||(P[p.name]={name:p.name,games:0,wins:0,pts:0,makes:0,poss:0,best:0,stops:0});
-      a.games++;if(p.id===h.winner)a.wins++;a.pts+=p.pts;a.makes+=p.makes;a.poss+=p.poss;a.best=Math.max(a.best,p.best);a.stops+=p.stops});
+      if(!h.unfinished)a.games++;if(p.id===h.winner)a.wins++;a.pts+=p.pts;a.makes+=p.makes;a.poss+=p.poss;a.best=Math.max(a.best,p.best);a.stops+=p.stops});
   });
   const list=Object.values(P);
   const top=(f,min)=>{const c=list.filter(x=>!min||x.poss>=min).sort((a,b)=>f(b)-f(a));return c.length&&f(c[0])>0?c[0]:null};
@@ -443,7 +467,7 @@ function daySummary(key){
     (x=>x&&{k:'鐵人',who:x.name,v:x.poss+' 次進攻'})(top(x=>x.poss))
   ].filter(Boolean);
   const seed=key.split('-').reduce((s,x)=>s+ +x,0);
-  return {key,games,list:list.sort((a,b)=>b.wins-a.wins||b.pts-a.pts),awards,playMs,
+  return {key,games,unfinished:games.filter(h=>h.unfinished).length,list:list.sort((a,b)=>b.wins-a.wins||b.pts-a.pts),awards,playMs,
     span:[games[0].start,games[games.length-1].end],poss:games.reduce((s,h)=>s+h.possessions,0),
     quote:QUOTES[seed%QUOTES.length]};
 }
@@ -451,12 +475,12 @@ function dayLabel(key){return key===dayKey(Date.now())?'今天':key.slice(5).rep
 function dayText(d){
   const hm=t=>{const x=new Date(t);return String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0')};
   return ['單挑之王 98・'+d.key+' 總結',
-    d.games.length+' 場・'+d.poss+' 球・打了 '+fmtTime(d.playMs)+'（'+hm(d.span[0])+'–'+hm(d.span[1])+'）','',
+    d.games.length+' 場'+(d.unfinished?'（含 '+d.unfinished+' 場未完成）':'')+'・'+d.poss+' 球・打了 '+fmtTime(d.playMs)+'（'+hm(d.span[0])+'–'+hm(d.span[1])+'）','',
     ...d.awards.map(a=>a.k+'：'+a.who+'　'+a.v),'',
     '戰績：',...d.list.map(p=>p.name+' '+p.wins+' 勝 '+p.games+' 場・'+p.pts+' 分'),'',
     '「'+d.quote+'」'].join('\n');
 }
-function abandon(){S.game=null;ui.confirm=null;save();render()}
+function abandon(){endEarly(false)}
 function rematch(){
   const g=S.game;if(!g)return;
   // winner attacks first, the rest keep the order of their final scores (lowest defends first)
@@ -489,12 +513,14 @@ function render(){
   const tabs=`<header>
     <div class="brand"><h1>單挑之王 <span class="v98">98</span></h1><span>KING OF THE COURT</span></div>
     <nav class="tabs" role="tablist">
-      <button role="tab" aria-selected="${view==='game'}" data-act="view" data-v="game">${S.game&&!S.game.done?'比賽中':'比賽'}</button>
+      <button role="tab" aria-selected="${view==='home'}" data-act="view" data-v="home">首頁</button>
+      ${S.game?`<button role="tab" aria-selected="${view==='game'}" data-act="view" data-v="game">${S.game.done?'比賽':'比賽中'}</button>`:''}
       <button role="tab" aria-selected="${view==='stats'}" data-act="view" data-v="stats">戰績</button>
     </nav></header>`;
   let body='';
+  if(view==='game'&&!S.game)view='home';
   if(view==='stats')body=renderStats();
-  else if(S.game)body=renderGame();
+  else if(view==='game')body=renderGame();
   else body=renderSetup();
   app.innerHTML=tabs+body;
   renderLayer();
@@ -511,6 +537,10 @@ function renderSetup(){
   const st=S.settings,ps=S.players;
   const presetTargets=[7,11,12,15];
   const gs=S.groups,sel=gs.find(g=>g.id===ui.group);
+  const live=S.game&&!S.game.done?S.game:null;
+  const liveText=live?(()=>{const [o,d]=live.order;return nameOf(o)+' '+live.scores[o]+' 分 vs '+nameOf(d)+' '+live.scores[d]+' 分・第 '+(live.log.length+1)+' 球'})():'';
+  const liveBanner=live?`<section class="live"><div><span class="live-tag">比賽進行中</span><b>${esc(liveText)}</b></div>
+    <button class="btn go" data-act="view" data-v="game">▶ 繼續比賽</button></section>`:'';
   const groupPanel=`<section class="panel">
     <div class="row" style="justify-content:space-between"><h2>常用名單</h2><span class="hint">點群組就帶入名單</span></div>
     <div class="groups">${gs.map(g=>`<button class="grp" aria-pressed="${g.id===ui.group}" data-act="pickGroup" data-id="${g.id}">
@@ -530,7 +560,7 @@ function renderSetup(){
         <div class="row"><button class="btn small" data-act="cancel">保留</button><button class="btn small" style="color:var(--bad)" data-act="delGroup">刪除</button></div></div>`:''}
     </div>`:''}
   </section>`;
-  return groupPanel+`<section class="panel">
+  return liveBanner+groupPanel+`<section class="panel">
     <div class="row" style="justify-content:space-between"><h2>上場名單</h2><span class="hint">${ps.length}/${MAX_PLAYERS} 人・排第 1 先攻、第 2 先守</span></div>
     <p class="hint" style="margin:0">點名字就能改，例如把「球員 1」改成球友的名字。改好可以存進上面的常用名單。</p>
     ${ps.length?`<ul class="plist">${ps.map((p,i)=>`<li>
@@ -573,7 +603,9 @@ function renderSetup(){
     ${canSpeak?`<div class="toggle"><div><div class="lab" style="font-weight:700">語音報分</div><div class="hint">每球報「誰幾分、誰防守、哪裡開球」</div></div>
       <button class="switch" role="switch" aria-checked="${st.voice}" aria-label="語音報分" data-act="tog" data-k="voice"></button></div>`:''}
   </section>
-  <button class="btn go block" data-act="start" ${ps.length<2?'disabled':''}><span class="go-play">▶</span> 開始比賽</button>`;
+  ${ui.confirm==='replace'&&live?`<div class="confirm"><b>還有一場比賽沒打完</b><span class="hint">${esc(liveText)}。要先怎麼處理這場？</span>
+    <div class="row"><button class="btn small court" data-act="replaceRecord">記錄後開新局</button><button class="btn small" style="color:var(--bad)" data-act="replaceDrop">不記錄、開新局</button><button class="btn small ghost" data-act="cancel">取消</button></div></div>`:''}
+  <button class="btn go block" data-act="start" ${ps.length<2?'disabled':''}><span class="go-play">▶</span> ${live?'開始新比賽':'開始比賽'}</button>`;
 }
 
 function renderGame(){
@@ -628,8 +660,8 @@ function renderGame(){
       <button class="btn" data-act="undo" ${g.undo.length?'':'disabled'}>↶ 復原上一球</button>
       ${g.done?`<button class="btn go" data-act="showWin">看結果</button>`:`<button class="btn end" data-act="askEnd">■ 結束這場</button>`}
     </div>
-    ${ui.confirm==='end'?`<div class="confirm"><b>結束這場比賽？</b><span class="hint">還沒人拿到 ${r.target} 分，這場不會記入戰績。</span>
-      <div class="row"><button class="btn small" data-act="cancel">繼續打</button><button class="btn small" style="color:var(--bad)" data-act="abandon">結束、不記錄</button></div></div>`:''}
+    ${ui.confirm==='end'?`<div class="confirm"><b>結束這場比賽？</b><span class="hint">還沒人拿到 ${r.target} 分。記錄下來的話，這場的得分和數據會算進今日總結，但沒有人拿勝場。</span>
+      <div class="row"><button class="btn small court" data-act="endRecord">結束並記錄</button><button class="btn small" style="color:var(--bad)" data-act="abandon">結束、不記錄</button><button class="btn small ghost" data-act="cancel">繼續打</button></div></div>`:''}
 
     <section class="panel">
       <div class="row" style="justify-content:space-between"><h2>排隊順序</h2><span class="hint">沒進的人排到最後</span></div>
@@ -670,9 +702,10 @@ function renderStats(){
   const agg={};
   H.forEach(h=>h.players.forEach(p=>{
     const k=p.name;const a=agg[k]||(agg[k]={name:k,games:0,wins:0,pts:0,makes:0,poss:0,best:0,stops:0,viol:0});
-    a.games++;if(p.id===h.winner)a.wins++;a.pts+=p.pts;a.makes+=p.makes;a.poss+=p.poss;a.best=Math.max(a.best,p.best);a.stops+=p.stops;a.viol+=p.viol;
+    if(!h.unfinished)a.games++;if(p.id===h.winner)a.wins++;a.pts+=p.pts;a.makes+=p.makes;a.poss+=p.poss;a.best=Math.max(a.best,p.best);a.stops+=p.stops;a.viol+=p.viol;
   }));
-  const rows=Object.values(agg).sort((a,b)=>b.wins-a.wins||(b.wins/b.games)-(a.wins/a.games)||b.pts-a.pts);
+  const rate=r=>r.games?r.wins/r.games:0;
+  const rows=Object.values(agg).sort((a,b)=>b.wins-a.wins||rate(b)-rate(a)||b.pts-a.pts);
   const days=[...new Set(H.map(h=>dayKey(h.start)))].sort().reverse();
   const dk=days.includes(ui.day)?ui.day:days[0];
   const d=daySummary(dk);const di=days.indexOf(dk);
@@ -682,7 +715,7 @@ function renderStats(){
       <div class="row"><button class="btn small" data-act="dayNav" data-d="${di+1}" ${di+1>=days.length?'disabled':''} aria-label="前一天">◀</button>
       <span class="num" style="font-size:20px">${dk.slice(5).replace('-','/')}</span>
       <button class="btn small" data-act="dayNav" data-d="${di-1}" ${di<=0?'disabled':''} aria-label="後一天">▶</button></div></div>
-    <div class="day-led"><div><b>${d.games.length}</b><span>場</span></div><div><b>${d.poss}</b><span>球</span></div><div><b>${fmtTime(d.playMs)}</b><span>${hm(d.span[0])}–${hm(d.span[1])}</span></div></div>
+    <div class="day-led"><div><b>${d.games.length}</b><span>場${d.unfinished?`（${d.unfinished} 場未完成）`:''}</span></div><div><b>${d.poss}</b><span>球</span></div><div><b>${fmtTime(d.playMs)}</b><span>${hm(d.span[0])}–${hm(d.span[1])}</span></div></div>
     <ul class="awards">${d.awards.map(a=>`<li><span class="ak">${a.k}</span><span class="aw">${esc(a.who)}</span><span class="av">${esc(a.v)}</span></li>`).join('')}</ul>
     <div class="tbl-wrap"><table style="min-width:0"><thead><tr><th>球員</th><th>勝/場</th><th>得分</th><th>命中</th><th>最長連進</th></tr></thead>
       <tbody>${d.list.map(p=>`<tr><td class="n">${esc(p.name)}</td><td><b>${p.wins}</b>/${p.games}</td><td>${p.pts}</td><td>${p.poss?Math.round(p.makes/p.poss*100)+'%':'—'}</td><td>${p.best}</td></tr>`).join('')}</tbody></table></div>
@@ -693,7 +726,7 @@ function renderStats(){
     <div class="row" style="justify-content:space-between"><h2>排行榜</h2><span class="hint">${H.length} 場・以名字合併</span></div>
     <div class="tbl-wrap"><table>
       <thead><tr><th>球員</th><th>勝/場</th><th>勝率</th><th>總分</th><th>命中</th><th>最長連進</th><th>防守成功</th></tr></thead>
-      <tbody>${rows.map((r,i)=>`<tr><td class="n">${i===0?'👑 ':''}${esc(r.name)}</td><td><b>${r.wins}</b>/${r.games}</td><td>${Math.round(r.wins/r.games*100)}%</td>
+      <tbody>${rows.map((r,i)=>`<tr><td class="n">${i===0&&r.wins?'👑 ':''}${esc(r.name)}</td><td><b>${r.wins}</b>/${r.games}</td><td>${r.games?Math.round(rate(r)*100)+'%':'—'}</td>
         <td>${r.pts}</td><td>${r.poss?Math.round(r.makes/r.poss*100)+'%':'—'}</td><td>${r.best}</td><td>${r.stops}</td></tr>`).join('')}</tbody>
     </table></div>
   </section>
@@ -703,10 +736,12 @@ function renderStats(){
     ${ui.confirm==='clear'?`<div class="confirm"><b>刪除全部 ${H.length} 場紀錄？</b><span class="hint">刪了就找不回來。</span>
       <div class="row"><button class="btn small" data-act="cancel">保留</button><button class="btn small" style="color:var(--bad)" data-act="clearHist">全部刪除</button></div></div>`:''}
     <ul class="hist">${H.map(h=>{const w=h.players.find(p=>p.id===h.winner);const sorted=[...h.players].sort((a,b)=>b.score-a.score);
-      return `<li><div class="top"><span class="w">👑 ${esc(w?w.name:'?')} <span class="num" style="font-size:18px">${w?w.score:''}</span></span><span class="meta">${fmtDate(h.start)}・${fmtTime(h.end-h.start)}</span></div>
+      return `<li><div class="top"><span class="w">${w?`👑 ${esc(w.name)} <span class="num" style="font-size:18px">${w.score}</span>`:'<span class="unf">未完成</span> '+esc(sorted[0].name)+' 領先'}</span><span class="meta">${fmtDate(h.start)}・${fmtTime(h.end-h.start)}</span></div>
       <div class="scores">${sorted.map(p=>`${esc(p.name)} <b>${p.score}</b>`).join('・')}</div>
       <div class="meta">搶 ${h.rules.target}・${h.rules.scoring==='split'?'1/2 分制':'全 1 分'}・${h.rules.dribbles?'限 '+h.rules.dribbles+' 運':'不限運'}${h.rules.penalty?'・失誤扣分':''}・${h.possessions} 球</div>
-      ${h.log?`<div><button class="btn small" data-act="export" data-kind="hist" data-id="${h.id}">匯出這場每球紀錄</button></div>`:''}</li>`}).join('')}</ul>
+      ${(h.rewards||[]).length?`<div class="chips">${h.rewards.map(r=>`<span class="chip${r.big?' big':''}">${esc(r.title)}</span>`).join('')}</div>`:''}
+      ${h.quote?`<div class="hq">「${esc(h.quote)}」</div>`:''}
+      <div class="row">${w?`<button class="btn small" data-act="replay" data-id="${h.id}">▶ 重看勝利畫面</button>`:''}${h.log?`<button class="btn small" data-act="export" data-kind="hist" data-id="${h.id}">匯出每球紀錄</button>`:''}</div></li>`}).join('')}</ul>
   </section>`;
 }
 
@@ -745,6 +780,20 @@ async function doExport(how){
   }
 }
 
+function winBody(name,score,st,ms,rewards,quote){
+  return `<div class="crown">KING OF THE COURT</div>
+      <div class="name">${esc(name)}</div>
+      <div class="final">${score}<small>分</small></div>
+      <div class="facts">
+        <div><b>${st.makes}/${st.poss}</b><span>進球/進攻</span></div>
+        <div><b>${st.best}</b><span>最長連進</span></div>
+        <div><b>${fmtTime(ms)}</b><span>比賽時間</span></div>
+      </div>
+      ${(rewards||[]).map(r=>`<div class="reward${r.big?' big':''}">
+        <div class="rw-top"><span class="rw-label">${esc(r.label)}</span><span class="rw-en">${r.en}</span></div>
+        <div class="rw-title">${esc(r.title)}</div><div class="rw-text">${esc(r.text)}</div></div>`).join('')}
+      ${quote?`<blockquote class="quote">${esc(quote)}</blockquote>`:''}`;
+}
 function renderLayer(){
   const g=S.game;let html='';
   if(ui.export){const x=ui.export;
@@ -762,18 +811,7 @@ function renderLayer(){
   if(g&&g.done&&ui.showWin!==false){
     const w=g.winner,st=g.stats[w];
     html+=`<div class="overlay" role="dialog" aria-modal="true" aria-label="比賽結果"><div class="win-card">
-      <div class="crown">KING OF THE COURT</div>
-      <div class="name">${esc(nameOf(w))}</div>
-      <div class="final">${g.scores[w]}<small>分</small></div>
-      <div class="facts">
-        <div><b>${st.makes}/${st.poss}</b><span>進球/進攻</span></div>
-        <div><b>${st.best}</b><span>最長連進</span></div>
-        <div><b>${fmtTime(g.end-g.start)}</b><span>比賽時間</span></div>
-      </div>
-      ${(g.rewards||[]).map(r=>`<div class="reward${r.big?' big':''}">
-        <div class="rw-top"><span class="rw-label">${esc(r.label)}</span><span class="rw-en">${r.en}</span></div>
-        <div class="rw-title">${esc(r.title)}</div><div class="rw-text">${esc(r.text)}</div></div>`).join('')}
-      ${g.quote?`<blockquote class="quote">${esc(g.quote)}</blockquote>`:''}
+      ${winBody(nameOf(w),g.scores[w],st,g.end-g.start,g.rewards,g.quote)}
       <button class="btn go block" data-act="rematch">▶ 再來一場（${esc(nameOf(w))} 先攻）</button>
       <div class="row" style="justify-content:center">
         <button class="btn small" data-act="undo">↶ 記錯了，復原</button>
@@ -783,6 +821,15 @@ function renderLayer(){
       </div>
     </div></div>`;
   }
+  const rp=ui.replay&&S.history.find(h=>h.id===ui.replay);
+  if(rp){const w=rp.players.find(p=>p.id===rp.winner);
+    html+=`<div class="overlay" role="dialog" aria-modal="true" aria-label="重看勝利畫面"><div class="win-card">
+      <div class="replay-date">${fmtDate(rp.start)} 的比賽・重播</div>
+      ${winBody(w.name,w.score,w,rp.end-rp.start,rp.rewards,rp.quote)}
+      <div class="row" style="justify-content:center">
+        <button class="btn go" data-act="closeReplay">關閉</button>
+        <button class="btn small" data-act="export" data-kind="hist" data-id="${rp.id}">匯出這場每球紀錄</button>
+      </div></div></div>`;}
   if(ui.toast)html+=`<div class="toast" role="status">${esc(ui.toast)}</div>`;
   $('layer').innerHTML=html;
 }
@@ -830,7 +877,8 @@ document.addEventListener('click',async e=>{
       if(g){g.players=names.slice();toast('已帶入 '+names.length+' 人並存進「'+g.name+'」')}else toast('已帶入 '+names.length+' 人');
       break;
     }
-    case 'start':ui.showWin=true;startGame(S.players.map(p=>p.id));break;
+    case 'start':if(S.game&&!S.game.done){ui.confirm='replace';break}ui.showWin=true;startGame(S.players.map(p=>p.id));break;
+    case 'replaceRecord':case 'replaceDrop':endEarly(a==='replaceRecord');ui.showWin=true;startGame(S.players.map(p=>p.id));render();return;
     case 'make':play('make',+b.dataset.p);return;
     case 'miss':play('miss');return;
     case 'viol':play('viol');return;
@@ -843,13 +891,16 @@ document.addEventListener('click',async e=>{
     case 'abandon':abandon();return;
     case 'clearHist':S.history=[];ui.confirm=null;break;
     case 'rematch':ui.showWin=true;rematch();return;
-    case 'toSetup':S.game=null;ui.showWin=true;view='game';break;
+    case 'toSetup':S.game=null;ui.showWin=true;view='home';break;
+    case 'endRecord':endEarly(true);return;
     case 'hideWin':ui.showWin=false;break;
     case 'showWin':ui.showWin=true;break;
     case 'toToday':ui.showWin=false;ui.day=null;view='stats';save();render();window.scrollTo(0,0);return;
     case 'dayNav':{const days=[...new Set(S.history.map(h=>dayKey(h.start)))].sort().reverse();const i=+b.dataset.d;if(days[i])ui.day=days[i];break}
     case 'copyDay':{const d=daySummary(b.dataset.k);if(!d)return;try{await navigator.clipboard.writeText(dayText(d));toast('已複製今日總結')}catch(err){ui.export={csv:dayText(d),count:d.games.length,name:d.key+' 總結',file:'summary.txt'};renderLayer()}return}
-    case 'export':{const x=buildExport(b.dataset.kind,b.dataset.id);if(!x.count){toast('還沒有可匯出的紀錄');return}ui.export=x;ui.showWin=false;renderLayer();return}
+    case 'export':{const x=buildExport(b.dataset.kind,b.dataset.id);if(!x.count){toast('還沒有可匯出的紀錄');return}ui.export=x;ui.showWin=false;ui.replay=null;renderLayer();return}
+    case 'replay':ui.replay=b.dataset.id;renderLayer();return;
+    case 'closeReplay':ui.replay=null;renderLayer();return;
     case 'closeExport':ui.export=null;renderLayer();return;
     case 'expDo':doExport(b.dataset.how);return;
     case 'copy':{
@@ -876,6 +927,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='customTarget'){const v=parseInt(e.target.value,10);if(v>0&&v<100){S.settings.target=v;save();render()}}
 });
 
+if(S.game)view='game';
 render();
 })();
 </script>

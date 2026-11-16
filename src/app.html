@@ -725,7 +725,7 @@ function renderStats(){
     <div class="tbl-wrap"><table style="min-width:0"><thead><tr><th>球員</th><th>勝/場</th><th>得分</th><th>命中</th><th>最長連進</th></tr></thead>
       <tbody>${d.list.map(p=>`<tr><td class="n">${esc(p.name)}</td><td><b>${p.wins}</b>/${p.games}</td><td>${p.pts}</td><td>${p.poss?Math.round(p.makes/p.poss*100)+'%':'—'}</td><td>${p.best}</td></tr>`).join('')}</tbody></table></div>
     <blockquote class="quote">${esc(d.quote)}</blockquote>
-    <div class="row"><button class="btn court small" data-act="copyDay" data-k="${dk}">複製總結（貼到 LINE）</button></div>
+    <div class="row"><button class="btn court small" data-act="copyDay" data-k="${dk}">複製總結</button></div>
   </section>`:'';
   return dayPanel+`<section class="panel">
     <div class="row" style="justify-content:space-between"><h2>排行榜</h2><span class="hint">${H.length} 場・以名字合併</span></div>

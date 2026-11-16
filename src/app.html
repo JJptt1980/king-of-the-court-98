@@ -498,7 +498,11 @@ function render(){
   else body=renderSetup();
   app.innerHTML=tabs+body;
   renderLayer();
+  // New screen (setup -> game, a new game, or another tab): start at the top, not where the last screen was scrolled.
+  const screen=view+'|'+(view==='game'?(S.game?S.game.id:'setup'):'');
+  if(screen!==lastScreen){if(lastScreen)window.scrollTo(0,0);lastScreen=screen}
 }
+let lastScreen='';
 
 function seg(key,opts,cur){
   return `<div class="seg">${opts.map(([v,l,cls])=>`<button type="button" aria-pressed="${String(cur)===String(v)}" data-act="set" data-k="${key}" data-v="${v}">${cls?`<span class="num">${l}</span>`:l}</button>`).join('')}</div>`;

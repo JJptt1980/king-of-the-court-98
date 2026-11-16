@@ -271,6 +271,8 @@ tr.win td.n::after{content:" ★"}
 .chip.big{background:var(--led-bg);color:var(--led);border-color:var(--rule)}
 .hq{font-size:13px;font-weight:700;color:var(--ink)}
 .replay-date{margin:0 -16px;padding:4px 10px;font-size:12px;color:var(--muted);border-bottom:1px dotted var(--rule)}
+.voice-btn{margin-left:auto;font-family:var(--f-pixel);font-size:11px;letter-spacing:.06em;color:#BDBDBD;border:1px solid #555;padding:2px 8px;min-height:28px}
+.voice-btn[aria-pressed="true"]{color:var(--led);border-color:var(--led)}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 16px;font-weight:700;font-size:14px;z-index:30;border:2px solid var(--paper);box-shadow:0 0 0 2px var(--ink)}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 @media (max-width:400px){.side .pts{font-size:84px}.act{min-height:84px}.brand .v98{font-family:var(--f-led);font-size:24px;font-weight:400;color:var(--ink);letter-spacing:0;vertical-align:-2px}
@@ -316,13 +318,15 @@ const nativeTTS=()=>{try{return window.Capacitor&&window.Capacitor.isNativePlatf
 const canSpeak=(()=>{try{return !!nativeTTS()||('speechSynthesis' in window&&typeof SpeechSynthesisUtterance!=='undefined')}catch(e){return false}})();
 
 let S=load()||{
-  settings:{target:12,scoring:'split',dribbles:3,spots:'elbow',penalty:false,voice:false},
+  settings:{target:12,scoring:'split',dribbles:3,spots:'elbow',penalty:false,voice:true},
   players:defaults(5),
   game:null,
   history:[]
 };
 if(S.example){S.players=defaults(5);delete S.example}
 if(!S.groups)S.groups=defaultGroups();
+// Voice used to default to off and was easy to miss; turn it on once for everyone.
+if(!S.voiceOn2){S.settings.voice=true;S.voiceOn2=true}
 if(S.players.every((p,i)=>p.name==='自訂 '+(i+1)))S.players.forEach((p,i)=>p.name='球員 '+(i+1));
 let view='home';
 let ui={confirm:null,dribble:0,toast:null,paste:false,group:null,renaming:false};
@@ -648,6 +652,7 @@ function renderGame(){
         ${spot?`<span>開球點 <b>${spot}</b></span>`:''}
         <span>${dr?`限 <b>${dr}</b> 運`:'不限運球'}</span>
         <span>第 <b>${g.log.length+1}</b> 球</span>
+        ${canSpeak?`<button class="voice-btn" data-act="tog" data-k="voice" aria-pressed="${S.settings.voice}">${S.settings.voice?'♪ 語音 開':'♪ 語音 關'}</button>`:''}
       </div>
     </section>
     ${g.done?'':`<div class="actions">

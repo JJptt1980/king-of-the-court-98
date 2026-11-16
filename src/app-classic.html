@@ -1,0 +1,678 @@
+<title>單挑之王記分板</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* Layout: one narrow phone column, scoreboard on top, big thumb buttons, queue + stats below */
+:root{
+  --bg:#EEF2F6; --surface:#FFFFFF; --sunk:#E3E9F0; --ink:#132030; --muted:#5A6879; --line:#D3DBE5;
+  --accent:#E2560B; --accent-ink:#FFFFFF; --court:#1D4C78; --court-ink:#FFFFFF;
+  --good:#18865A; --bad:#C0352E; --warn:#B7791F;
+  --f-display:"Barlow Condensed","Noto Sans TC",system-ui,sans-serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B121A; --surface:#141F2B; --sunk:#0F1822; --ink:#E7EDF4; --muted:#8D9BAC; --line:#243344;
+  --accent:#FF7A2E; --accent-ink:#1A0A00; --court:#2B6CA8; --court-ink:#FFFFFF;
+  --good:#38C185; --bad:#F06A62; --warn:#E5A93B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B121A; --surface:#141F2B; --sunk:#0F1822; --ink:#E7EDF4; --muted:#8D9BAC; --line:#243344;
+  --accent:#FF7A2E; --accent-ink:#1A0A00; --court:#2B6CA8; --court-ink:#FFFFFF;
+  --good:#38C185; --bad:#F06A62; --warn:#E5A93B; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:560px;margin:0 auto;padding-block:12px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--f-display);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--muted);font-weight:700}
+
+/* header + tabs */
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand h1{font-family:var(--f-display);font-weight:800;font-size:26px;margin:0;line-height:1;letter-spacing:.02em}
+.brand span{font-family:var(--f-display);font-weight:700;color:var(--accent);font-size:15px;letter-spacing:.14em}
+.tabs{display:flex;background:var(--sunk);border-radius:999px;padding:3px}
+.tabs button{padding:6px 14px;border-radius:999px;font-weight:700;font-size:14px;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:14px}
+.panel h2{margin:0;font-size:16px;font-weight:900}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.field{display:flex;flex-direction:column;gap:8px}
+.field > label,.field > .lab{font-weight:700;font-size:14px}
+.hint{font-size:13px;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{padding:8px 14px;border-radius:10px;background:var(--sunk);font-weight:700;border:1px solid transparent;min-height:40px}
+.seg button[aria-pressed="true"]{background:var(--court);color:var(--court-ink)}
+.seg .num{font-size:20px;line-height:1}
+input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-height:42px;min-width:0}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.switch{width:50px;height:30px;border-radius:999px;background:var(--line);position:relative;flex:none;transition:background .15s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--surface);transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.switch[aria-checked="true"]{background:var(--good)}
+.switch[aria-checked="true"]::after{transform:translateX(20px)}
+
+.plist{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.plist li{display:flex;align-items:center;gap:10px;background:var(--sunk);border-radius:10px;padding:6px 6px 6px 12px}
+.plist .idx{font-family:var(--f-display);font-weight:700;font-size:18px;width:22px;color:var(--muted)}
+.plist .nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plist .nm-in{flex:1;min-width:0;font-weight:700;background:transparent;border:1px dashed transparent;padding:6px 8px;min-height:36px}
+.plist .nm-in:hover{border-color:var(--line)}
+.plist .nm-in:focus{background:var(--surface);border-color:var(--accent);border-style:solid;outline:none}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.grp{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border-radius:12px;background:var(--sunk);border:1px solid var(--line);text-align:left;min-width:0}
+.grp .gn{font-weight:900;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grp .gc{font-size:12px;color:var(--muted)}
+.grp[aria-pressed="true"]{background:var(--court);color:var(--court-ink);border-color:transparent}
+.grp[aria-pressed="true"] .gc{color:var(--court-ink);opacity:.8}
+.grp.add-grp{align-items:center;justify-content:center;border-style:dashed;background:transparent;color:var(--muted);font-weight:700}
+.grp-detail{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.grp-detail .hint{min-width:0;overflow-wrap:anywhere}
+textarea{font:inherit;color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:9px 12px;resize:vertical;width:100%}
+.plist .role{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px}
+.role.off{background:var(--accent);color:var(--accent-ink)}
+.role.def{background:var(--court);color:var(--court-ink)}
+.icon-btn{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:18px}
+.icon-btn:hover{background:var(--line)}
+.add{display:flex;gap:8px}
+.add input{flex:1}
+
+.btn{padding:12px 18px;border-radius:12px;font-weight:900;font-size:16px;min-height:48px;background:var(--sunk);border:1px solid var(--line)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.btn.court{background:var(--court);color:var(--court-ink);border-color:transparent}
+.btn.ghost{background:transparent}
+.btn.small{padding:6px 12px;min-height:36px;font-size:14px;font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.block{width:100%}
+
+/* scoreboard */
+.board{background:var(--court);color:var(--court-ink);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
+.board::before{content:"";position:absolute;right:-70px;top:-70px;width:220px;height:220px;border:3px solid rgba(255,255,255,.14);border-radius:50%}
+.board::after{content:"";position:absolute;right:-20px;top:-20px;width:120px;height:120px;border:3px solid rgba(255,255,255,.10);border-radius:50%}
+.matchup{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px;position:relative;z-index:1}
+.side{min-width:0;display:flex;flex-direction:column;gap:2px}
+.side.right{text-align:right}
+.side .tag{font-size:12px;font-weight:900;letter-spacing:.1em;opacity:.8}
+.side .who{font-size:20px;font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side .pts{font-family:var(--f-display);font-weight:800;font-size:76px;line-height:.9;font-variant-numeric:tabular-nums}
+.side.left .pts{color:#FFB37E}
+.vs{font-family:var(--f-display);font-weight:700;font-size:18px;opacity:.6;padding-bottom:12px}
+.streak{display:inline-flex;gap:4px;align-items:center;font-size:12px;font-weight:700;background:rgba(255,255,255,.16);border-radius:999px;padding:2px 8px;width:max-content}
+.call{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;border-top:1px solid rgba(255,255,255,.18);padding-top:10px}
+.call b{font-weight:900}
+.progress{position:relative;z-index:1;height:6px;background:rgba(255,255,255,.18);border-radius:999px;overflow:hidden}
+.progress i{display:block;height:100%;background:#FFB37E;border-radius:999px;transition:width .25s}
+
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.act{border-radius:16px;padding:16px 12px;min-height:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:900;font-size:18px;border:1px solid transparent;transition:transform .06s}
+.act:active{transform:scale(.97)}
+.act small{font-size:12px;font-weight:500;opacity:.85}
+.act .big{font-family:var(--f-display);font-size:34px;line-height:1;font-weight:800}
+.act.make{background:var(--good);color:#fff}
+.act.miss{background:var(--surface);border-color:var(--line);color:var(--ink)}
+.act.viol{background:var(--surface);border-color:var(--line);color:var(--bad)}
+.act.wide{grid-column:1 / -1}
+
+.dribble{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
+.dots{display:flex;gap:6px;flex:1}
+.dots i{width:18px;height:18px;border-radius:50%;border:2px solid var(--line)}
+.dots i.on{background:var(--accent);border-color:var(--accent)}
+.dribble.over{border-color:var(--bad)}
+.dribble .lbl{font-weight:700;font-size:14px}
+.dribble .shout{font-weight:900;color:var(--bad)}
+
+.queue{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.queue li{display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--sunk)}
+.queue .pos{font-family:var(--f-display);font-weight:700;color:var(--muted);font-size:18px}
+.queue .nm{font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.queue .sc{font-family:var(--f-display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums}
+.queue li.off{background:color-mix(in srgb,var(--accent) 16%,var(--surface))}
+.queue li.def{background:color-mix(in srgb,var(--court) 16%,var(--surface))}
+
+.log{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;margin:0;padding:0;list-style:none;font-size:14px}
+.log li{display:flex;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.log li:last-child{border-bottom:0}
+.log .t{color:var(--muted);font-variant-numeric:tabular-nums;width:44px;flex:none}
+.log .ok{color:var(--good);font-weight:700}
+.log .no{color:var(--muted);font-weight:700}
+.log .bad{color:var(--bad);font-weight:700}
+
+.tbl-wrap{overflow-x:auto;margin:0 -4px}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:420px}
+th,td{padding:8px 6px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.04em}
+th:first-child,td:first-child{text-align:left}
+td{font-variant-numeric:tabular-nums}
+td.n{font-weight:700}
+tr.win td.n::after{content:" 👑"}
+
+.hist{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.hist li{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.hist .top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.hist .w{font-weight:900}
+.hist .meta{font-size:13px;color:var(--muted)}
+.hist .scores{font-size:14px}
+
+.empty{text-align:center;color:var(--muted);padding:20px 8px;display:flex;flex-direction:column;gap:6px}
+.empty b{color:var(--ink);font-size:16px}
+
+.confirm{display:flex;flex-direction:column;gap:10px;background:color-mix(in srgb,var(--bad) 10%,var(--surface));border:1px solid var(--bad);border-radius:12px;padding:12px}
+
+.overlay{position:fixed;inset:0;background:rgba(5,10,16,.6);display:grid;place-items:center;z-index:20;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.win-card{background:var(--surface);border-radius:20px;padding:22px 18px;max-width:420px;width:100%;display:flex;flex-direction:column;gap:14px;text-align:center;max-height:100%;overflow:auto}
+.win-card .crown{font-family:var(--f-display);font-weight:800;color:var(--accent);letter-spacing:.2em;font-size:15px}
+.win-card .name{font-size:34px;font-weight:900;line-height:1.1;text-wrap:balance}
+.win-card .final{font-family:var(--f-display);font-size:56px;font-weight:800;line-height:1}
+.win-card .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.win-card .facts div{background:var(--sunk);border-radius:10px;padding:8px 4px}
+.win-card .facts b{display:block;font-family:var(--f-display);font-size:24px;line-height:1.1}
+.win-card .facts span{font-size:12px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:30}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+@media (max-width:380px){.side .pts{font-size:60px}.act{min-height:80px}}
+</style>
+
+<div class="wrap" id="app"></div>
+<div id="layer"></div>
+
+<script>
+(function(){
+const KEY='kotc-v1';
+const SPOT_SETS={
+  elbow:['罰球線頂端','左肘區','右肘區'],
+  arc:['弧頂','左翼 45°','右翼 45°'],
+  none:[]
+};
+const MAX_PLAYERS=100;
+// ROSTER_VAULT_START (generated by scripts/encrypt-rosters.mjs; do not edit by hand)
+const ROSTER_VAULT=[{"s":"nral7zOBkhpw6ZXMh/P0jQ==","v":"3WAw7KF9y/HFGZ9y","c":"mEiTww3nJT0867H9EVL1XwZm8YpLEGnneykmI/MHWjJFigsfAeL0h5UjOXTajkKSm6GHU6D+tn8kb+K9ciWaHkiXL5uJ2L6d/EZVtfBab3jPiDE7cq2ERA6JAh5QpapoL+ZXBXS1LQka60bsfLz6SwSyUpAFWAUnJ52u16Z3/nqQSW5W4IdJlmYVWgG25ixblM654CGphezQYk2ZBJV0vII=","i":300000}];
+// ROSTER_VAULT_END
+async function unlockRoster(code){
+  try{
+    if(!/^[A-Z0-9]{4,24}$/.test(code)||!ROSTER_VAULT.length||!(window.crypto&&crypto.subtle))return null;
+    const te=new TextEncoder(),b64=x=>Uint8Array.from(atob(x),c=>c.charCodeAt(0));
+    const base=await crypto.subtle.importKey('raw',te.encode(code),'PBKDF2',false,['deriveKey']);
+    for(const v of ROSTER_VAULT){
+      try{
+        const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(v.s),iterations:v.i,hash:'SHA-256'},base,{name:'AES-GCM',length:256},false,['decrypt']);
+        const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(v.v)},key,b64(v.c));
+        const names=JSON.parse(new TextDecoder().decode(pt));if(Array.isArray(names))return names;
+      }catch(e){}
+    }
+  }catch(e){}
+  return null;
+}
+let uid=()=>Math.random().toString(36).slice(2,9);
+const defaults=n=>Array.from({length:n},(_,i)=>({id:uid(),name:'球員 '+(i+1)}));
+function nextDefaultName(){let i=1;while(S.players.some(p=>p.name==='球員 '+i))i++;return '球員 '+i}
+const defaultGroups=()=>[1,2,3].map(i=>({id:uid(),name:'自訂 '+i,players:[]}));
+function nextGroupName(){let i=1;while(S.groups.some(g=>g.name==='自訂 '+i))i++;return '自訂 '+i}
+const nativeTTS=()=>{try{return window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()&&window.Capacitor.Plugins&&window.Capacitor.Plugins.TextToSpeech}catch(e){return null}};
+const canSpeak=(()=>{try{return !!nativeTTS()||('speechSynthesis' in window&&typeof SpeechSynthesisUtterance!=='undefined')}catch(e){return false}})();
+
+let S=load()||{
+  settings:{target:12,scoring:'split',dribbles:3,spots:'elbow',penalty:false,voice:false},
+  players:defaults(5),
+  game:null,
+  history:[]
+};
+if(S.example){S.players=defaults(5);delete S.example}
+if(!S.groups)S.groups=defaultGroups();
+if(S.players.every((p,i)=>p.name==='自訂 '+(i+1)))S.players.forEach((p,i)=>p.name='球員 '+(i+1));
+let view='game';
+let ui={confirm:null,dribble:0,toast:null,paste:false,group:null,renaming:false};
+
+function load(){try{const r=localStorage.getItem(KEY);return r?JSON.parse(r):null}catch(e){return null}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id);
+function nameOf(id){const g=S.game;const p=(g?g.roster:S.players).find(p=>p.id===id);return p?p.name:'?'}
+function fmtTime(ms){const s=Math.max(0,Math.round(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function fmtDate(t){const d=new Date(t);return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+
+/* ---------- game engine ---------- */
+function newStats(){return {pts:0,makes:0,poss:0,viol:0,stops:0,streak:0,best:0}}
+function startGame(order){
+  const roster=order.map(id=>S.players.find(p=>p.id===id)).filter(Boolean).map(p=>({...p}));
+  const g={id:uid(),start:Date.now(),rules:{...S.settings},roster,order:roster.map(p=>p.id),
+    scores:{},stats:{},spotIdx:0,log:[],undo:[],done:false};
+  roster.forEach(p=>{g.scores[p.id]=0;g.stats[p.id]=newStats()});
+  S.game=g;ui.dribble=0;save();wake();announce();
+}
+function snapshot(g){const {undo,...rest}=g;return JSON.stringify(rest)}
+function play(type,pts){
+  const g=S.game;if(!g||g.done)return;
+  g.undo.push(snapshot(g));if(g.undo.length>60)g.undo.shift();
+  const [off,def,...q]=g.order;
+  const so=g.stats[off],sd=g.stats[def];
+  so.poss++;
+  const ev={t:Date.now()-g.start,off,def,type,pts:0,spot:curSpot(g)};
+  if(type==='make'){
+    g.scores[off]+=pts;so.pts+=pts;so.makes++;so.streak++;so.best=Math.max(so.best,so.streak);ev.pts=pts;
+    g.order=q.length?[off,...q,def]:[off,def];
+  }else{
+    so.streak=0;
+    if(type==='viol'){so.viol++;if(g.rules.penalty&&g.scores[off]>0){g.scores[off]--;ev.pts=-1}}
+    sd.stops++;
+    g.order=q.length?[def,...q,off]:[def,off];
+  }
+  ev.score=g.scores[off];
+  g.log.push(ev);g.spotIdx++;ui.dribble=0;
+  if(type==='make'&&g.scores[off]>=g.rules.target){finish(off)}
+  save();render();
+  if(!g.done)announce();
+}
+function undo(){
+  const g=S.game;if(!g||!g.undo.length)return;
+  const prev=JSON.parse(g.undo.pop());
+  const u=g.undo;S.game={...prev,undo:u};
+  if(prev.done===false&&g.done){S.history=S.history.filter(h=>h.id!==g.id)}
+  ui.dribble=0;save();render();toast('已復原上一球');
+}
+function curSpot(g){const set=SPOT_SETS[g.rules.spots]||[];return set.length?set[g.spotIdx%set.length]:''}
+function finish(winner){
+  const g=S.game;g.done=true;g.winner=winner;g.end=Date.now();
+  const rec={id:g.id,start:g.start,end:g.end,rules:g.rules,winner,
+    players:g.roster.map(p=>({id:p.id,name:p.name,score:g.scores[p.id],...g.stats[p.id]})),
+    possessions:g.log.length,log:g.log.map(e=>({...e}))};
+  S.history=S.history.filter(h=>h.id!==g.id);S.history.unshift(rec);
+  S.history=S.history.slice(0,200);
+  speak(nameOf(winner)+' 拿到 '+g.scores[winner]+' 分，單挑之王！');
+}
+function abandon(){S.game=null;ui.confirm=null;save();render()}
+function rematch(){
+  const g=S.game;if(!g)return;
+  // winner attacks first, the rest keep the order of their final scores (lowest defends first)
+  const rest=g.roster.map(p=>p.id).filter(id=>id!==g.winner).sort((a,b)=>g.scores[a]-g.scores[b]);
+  S.players=g.roster.map(p=>({...p}));
+  startGame([g.winner,...rest]);render();
+}
+
+/* ---------- voice + wake lock ---------- */
+function speak(text){
+  if(!S.settings.voice)return;
+  const tts=nativeTTS();
+  if(tts){tts.stop().catch(()=>{}).then(()=>tts.speak({text,lang:'zh-TW',rate:1.05})).catch(()=>{});return}
+  try{const u=new SpeechSynthesisUtterance(text);u.lang='zh-TW';u.rate=1.05;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}
+}
+function announce(){
+  const g=S.game;if(!g||g.done)return;
+  const [off,def]=g.order;const spot=curSpot(g);
+  speak(nameOf(off)+' '+g.scores[off]+' 分，'+nameOf(def)+' 防守'+(spot?'，'+spot:''));
+}
+let lock=null;
+async function wake(){try{if('wakeLock' in navigator&&!lock){lock=await navigator.wakeLock.request('screen');lock.addEventListener('release',()=>lock=null)}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&S.game&&!S.game.done)wake()});
+
+function toast(msg){ui.toast=msg;renderLayer();clearTimeout(toast._t);toast._t=setTimeout(()=>{ui.toast=null;renderLayer()},1600)}
+
+/* ---------- render ---------- */
+function render(){
+  const app=$('app');
+  const tabs=`<header>
+    <div class="brand"><h1>單挑之王</h1><span>KING OF THE COURT</span></div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="${view==='game'}" data-act="view" data-v="game">${S.game&&!S.game.done?'比賽中':'比賽'}</button>
+      <button role="tab" aria-selected="${view==='stats'}" data-act="view" data-v="stats">戰績</button>
+    </nav></header>`;
+  let body='';
+  if(view==='stats')body=renderStats();
+  else if(S.game)body=renderGame();
+  else body=renderSetup();
+  app.innerHTML=tabs+body;
+  renderLayer();
+}
+
+function seg(key,opts,cur){
+  return `<div class="seg">${opts.map(([v,l,cls])=>`<button type="button" aria-pressed="${String(cur)===String(v)}" data-act="set" data-k="${key}" data-v="${v}">${cls?`<span class="num">${l}</span>`:l}</button>`).join('')}</div>`;
+}
+function renderSetup(){
+  const st=S.settings,ps=S.players;
+  const presetTargets=[7,11,12,15];
+  const gs=S.groups,sel=gs.find(g=>g.id===ui.group);
+  const groupPanel=`<section class="panel">
+    <div class="row" style="justify-content:space-between"><h2>常用名單</h2><span class="hint">點群組就帶入名單</span></div>
+    <div class="groups">${gs.map(g=>`<button class="grp" aria-pressed="${g.id===ui.group}" data-act="pickGroup" data-id="${g.id}">
+      <span class="gn">${esc(g.name)}</span><span class="gc">${g.players.length?g.players.length+' 人':'空的'}</span></button>`).join('')}
+      ${gs.length<12?`<button class="grp add-grp" data-act="addGroup">＋ 新群組</button>`:''}
+    </div>
+    ${sel?`<div class="grp-detail">
+      ${ui.renaming?`<div class="row"><input id="groupName" type="text" maxlength="12" value="${esc(sel.name)}" aria-label="群組名稱" style="flex:1">
+        <button class="btn court small" data-act="saveRename">儲存名稱</button><button class="btn small ghost" data-act="cancelRename">取消</button></div>`
+      :`<div class="row" style="justify-content:space-between"><b>${esc(sel.name)}</b><span class="hint">${sel.players.length?esc(sel.players.join('、')):'這組還沒有名單'}</span></div>`}
+      <div class="row">
+        <button class="btn court small" data-act="saveGroup" ${S.players.length?'':'disabled'}>把目前 ${S.players.length} 人存進這組</button>
+        ${ui.renaming?'':`<button class="btn small" data-act="renameGroup">改名</button>`}
+        <button class="btn small ghost" style="color:var(--bad)" data-act="askDelGroup">刪除群組</button>
+      </div>
+      ${ui.confirm==='delGroup'?`<div class="confirm"><b>刪除「${esc(sel.name)}」？</b><span class="hint">只刪這個群組的名單，比賽戰績不受影響。</span>
+        <div class="row"><button class="btn small" data-act="cancel">保留</button><button class="btn small" style="color:var(--bad)" data-act="delGroup">刪除</button></div></div>`:''}
+    </div>`:''}
+  </section>`;
+  return groupPanel+`<section class="panel">
+    <div class="row" style="justify-content:space-between"><h2>上場名單</h2><span class="hint">${ps.length}/${MAX_PLAYERS} 人・排第 1 先攻、第 2 先守</span></div>
+    <p class="hint" style="margin:0">點名字就能改，例如把「球員 1」改成球友的名字。改好可以存進上面的常用名單。</p>
+    ${ps.length?`<ul class="plist">${ps.map((p,i)=>`<li>
+      <span class="idx">${i+1}</span><input class="nm-in" type="text" id="pn-${p.id}" data-pid="${p.id}" value="${esc(p.name)}" maxlength="12" autocomplete="off" aria-label="第 ${i+1} 位球員名字">
+      ${i===0?'<span class="role off">進攻</span>':i===1?'<span class="role def">防守</span>':''}
+      <button class="icon-btn" aria-label="往上移 ${esc(p.name)}" data-act="up" data-i="${i}" ${i===0?'disabled':''}>↑</button>
+      <button class="icon-btn" aria-label="移除 ${esc(p.name)}" data-act="rm" data-i="${i}">×</button>
+    </li>`).join('')}</ul>`:`<div class="empty"><b>還沒有球員</b>至少加入 2 人才能開打，3～6 人節奏最好。</div>`}
+    <div class="row">
+      <button class="btn court small" data-act="addOne" ${ps.length>=MAX_PLAYERS?'disabled':''}>＋ 新增一位</button>
+      <button class="btn small" data-act="togPaste" aria-expanded="${ui.paste}">帶入名單</button>
+      <button class="btn small" data-act="shuffle" ${ps.length<2?'disabled':''}>隨機排序</button>
+      <button class="btn small ghost" data-act="resetPlayers">重設為球員 1～5</button>
+    </div>
+    ${ui.paste?`<div class="field">
+      <label for="pasteBox">貼上名字（一行一個，或用逗號、空白分開），或輸入名單代碼</label>
+      <textarea id="pasteBox" rows="4" placeholder="阿傑&#10;小明&#10;大偉"></textarea>
+      <div class="row"><button class="btn court small" data-act="importList">帶入取代名單</button>${sel?`<button class="btn court small" data-act="importList" data-save="1">帶入並存進「${esc(sel.name)}」</button>`:`<span class="hint">先在上面點一個群組，就能直接存進去</span>`}<button class="btn small ghost" data-act="togPaste">取消</button></div>
+    </div>`:''}
+  </section>
+
+  <section class="panel">
+    <h2>規則</h2>
+    <div class="field"><span class="lab">先得幾分贏</span>
+      <div class="row">${seg('target',presetTargets.map(n=>[n,n,1]),presetTargets.includes(st.target)?st.target:'')}
+      <input id="customTarget" type="number" min="1" max="99" inputmode="numeric" style="width:80px" placeholder="自訂" value="${presetTargets.includes(st.target)?'':st.target}" aria-label="自訂目標分數"></div>
+    </div>
+    <div class="field"><span class="lab">計分方式</span>
+      ${seg('scoring',[['split','3 分線內 1 分，線外 2 分'],['one','全都 1 分']],st.scoring)}
+    </div>
+    <div class="field"><span class="lab">運球上限</span>
+      ${seg('dribbles',[[1,'1 運',0],[2,'2 運',0],[3,'3 運',0],[0,'不限',0]],st.dribbles)}
+      <span class="hint">從罰球線一帶開球建議 2 運；三分線外開球用 3 運。</span>
+    </div>
+    <div class="field"><span class="lab">開球點輪替</span>
+      ${seg('spots',[['elbow','罰球線・左右肘區'],['arc','弧頂・左右 45°'],['none','不提示']],st.spots)}
+    </div>
+    <div class="toggle"><div><div class="lab" style="font-weight:700">失誤扣 1 分</div><div class="hint">運球超次、走步、被抄截，除了換人還扣分</div></div>
+      <button class="switch" role="switch" aria-checked="${st.penalty}" aria-label="失誤扣 1 分" data-act="tog" data-k="penalty"></button></div>
+    ${canSpeak?`<div class="toggle"><div><div class="lab" style="font-weight:700">語音報分</div><div class="hint">每球報「誰幾分、誰防守、哪裡開球」</div></div>
+      <button class="switch" role="switch" aria-checked="${st.voice}" aria-label="語音報分" data-act="tog" data-k="voice"></button></div>`:''}
+  </section>
+  <button class="btn primary block" data-act="start" ${ps.length<2?'disabled':''}>開始比賽</button>`;
+}
+
+function renderGame(){
+  const g=S.game,r=g.rules;
+  const [off,def,...q]=g.order;
+  const so=g.stats[off];
+  const spot=curSpot(g);
+  const pct=Math.min(100,g.scores[off]/r.target*100);
+  const lead=[...g.order].sort((a,b)=>g.scores[b]-g.scores[a])[0];
+  const makeBtns=r.scoring==='split'
+    ?`<button class="act make" data-act="make" data-p="1"><span class="big">+1</span>進球<small>三分線內</small></button>
+      <button class="act make" data-act="make" data-p="2"><span class="big">+2</span>進球<small>三分線外</small></button>`
+    :`<button class="act make wide" data-act="make" data-p="1"><span class="big">+1</span>進球・留在場上</button>`;
+  const dr=r.dribbles;
+  const dribbleBar=dr?`<div class="dribble ${ui.dribble>dr?'over':''}">
+      <span class="lbl">運球</span>
+      <button class="dots" data-act="drib" aria-label="記一次運球" style="cursor:pointer">${Array.from({length:dr},(_,i)=>`<i class="${i<ui.dribble?'on':''}"></i>`).join('')}</button>
+      ${ui.dribble>=dr?`<span class="shout">${ui.dribble>dr?'超次！':'收！'}</span>`:`<span class="hint">點圓點計數</span>`}
+      <button class="btn small ghost" data-act="dribReset">歸零</button>
+    </div>`:'';
+  const lastLog=g.log.slice(-30).reverse();
+  return `<section class="board" aria-live="polite">
+      <div class="matchup">
+        <div class="side left">
+          <span class="tag">擂主・進攻</span>
+          <span class="who">${esc(nameOf(off))}</span>
+          <span class="pts">${g.scores[off]}</span>
+          ${so.streak>=2?`<span class="streak">連進 ${so.streak} 球</span>`:''}
+        </div>
+        <div class="vs">VS</div>
+        <div class="side right">
+          <span class="tag">挑戰者・防守</span>
+          <span class="who">${esc(nameOf(def))}</span>
+          <span class="pts">${g.scores[def]}</span>
+        </div>
+      </div>
+      <div class="progress" aria-label="距離目標"><i style="width:${pct}%"></i></div>
+      <div class="call">
+        <span>目標 <b class="num" style="font-size:17px">${r.target}</b> 分</span>
+        ${spot?`<span>開球點 <b>${spot}</b></span>`:''}
+        <span>${dr?`限 <b>${dr}</b> 運`:'不限運球'}</span>
+        <span>第 <b>${g.log.length+1}</b> 球</span>
+      </div>
+    </section>
+    ${g.done?'':`<div class="actions">
+      ${makeBtns}
+      <button class="act miss" data-act="miss">沒進<small>防守者上來進攻</small></button>
+      <button class="act viol" data-act="viol">失誤${r.penalty?' −1':''}<small>運球超次・走步・被抄</small></button>
+    </div>
+    ${dribbleBar}`}
+    <div class="row" style="justify-content:space-between">
+      <button class="btn small" data-act="undo" ${g.undo.length?'':'disabled'}>↶ 復原上一球</button>
+      ${g.done?`<button class="btn small primary" data-act="showWin">看結果</button>`:`<button class="btn small ghost" data-act="askEnd">結束這場</button>`}
+    </div>
+    ${ui.confirm==='end'?`<div class="confirm"><b>結束這場比賽？</b><span class="hint">還沒人拿到 ${r.target} 分，這場不會記入戰績。</span>
+      <div class="row"><button class="btn small" data-act="cancel">繼續打</button><button class="btn small" style="color:var(--bad)" data-act="abandon">結束、不記錄</button></div></div>`:''}
+
+    <section class="panel">
+      <div class="row" style="justify-content:space-between"><h2>排隊順序</h2><span class="hint">沒進的人排到最後</span></div>
+      <ul class="queue">
+        ${g.order.map((id,i)=>`<li class="${i===0?'off':i===1?'def':''}">
+          <span class="pos">${i===0?'攻':i===1?'守':i-1}</span>
+          <span class="nm">${esc(nameOf(id))}${id===lead&&g.scores[id]>0?' <span class="hint">領先</span>':''}</span>
+          <span class="sc">${g.scores[id]}</span></li>`).join('')}
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>這場數據</h2>
+      ${statTable(g.roster.map(p=>({name:p.name,id:p.id,score:g.scores[p.id],...g.stats[p.id]})),g.winner)}
+    </section>
+
+    <section class="panel">
+      <div class="row" style="justify-content:space-between"><h2>每球紀錄</h2>${g.log.length?`<button class="btn small" data-act="export" data-kind="game">匯出 CSV</button>`:''}</div>
+      ${lastLog.length?`<ul class="log">${lastLog.map(e=>`<li><span class="t">${fmtTime(e.t)}</span><span>${esc(nameOf(e.off))} ${
+        e.type==='make'?`<span class="ok">進 +${e.pts}</span>`:e.type==='viol'?`<span class="bad">失誤${e.pts<0?' −1':''}</span>`:`<span class="no">沒進</span>`
+      } <span class="hint">→ ${e.score} 分・${esc(nameOf(e.def))} 防${e.spot?'・'+e.spot:''}</span></span></li>`).join('')}</ul>`
+      :`<div class="empty"><b>第一球還沒打</b>按上面的按鈕記錄每一個回合。</div>`}
+    </section>`;
+}
+
+function statTable(rows,winner){
+  rows=[...rows].sort((a,b)=>b.score-a.score);
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>球員</th><th>得分</th><th>進/攻</th><th>命中</th><th>最長連進</th><th>防守成功</th><th>失誤</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr class="${r.id===winner?'win':''}"><td class="n">${esc(r.name)}</td><td><b>${r.score}</b></td><td>${r.makes}/${r.poss}</td>
+      <td>${r.poss?Math.round(r.makes/r.poss*100)+'%':'—'}</td><td>${r.best}</td><td>${r.stops}</td><td>${r.viol}</td></tr>`).join('')}</tbody>
+  </table></div>`;
+}
+
+function renderStats(){
+  const H=S.history;
+  if(!H.length)return `<section class="panel"><div class="empty"><b>還沒有完成的比賽</b>打完一場（有人拿到目標分數）就會出現在這裡，累積勝場、命中率和最長連進。</div></section>`;
+  const agg={};
+  H.forEach(h=>h.players.forEach(p=>{
+    const k=p.name;const a=agg[k]||(agg[k]={name:k,games:0,wins:0,pts:0,makes:0,poss:0,best:0,stops:0,viol:0});
+    a.games++;if(p.id===h.winner)a.wins++;a.pts+=p.pts;a.makes+=p.makes;a.poss+=p.poss;a.best=Math.max(a.best,p.best);a.stops+=p.stops;a.viol+=p.viol;
+  }));
+  const rows=Object.values(agg).sort((a,b)=>b.wins-a.wins||(b.wins/b.games)-(a.wins/a.games)||b.pts-a.pts);
+  return `<section class="panel">
+    <div class="row" style="justify-content:space-between"><h2>排行榜</h2><span class="hint">${H.length} 場・以名字合併</span></div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>球員</th><th>勝/場</th><th>勝率</th><th>總分</th><th>命中</th><th>最長連進</th><th>防守成功</th></tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr><td class="n">${i===0?'👑 ':''}${esc(r.name)}</td><td><b>${r.wins}</b>/${r.games}</td><td>${Math.round(r.wins/r.games*100)}%</td>
+        <td>${r.pts}</td><td>${r.poss?Math.round(r.makes/r.poss*100)+'%':'—'}</td><td>${r.best}</td><td>${r.stops}</td></tr>`).join('')}</tbody>
+    </table></div>
+  </section>
+  <section class="panel">
+    <div class="row" style="justify-content:space-between"><h2>歷史比賽</h2>
+      <div class="row"><button class="btn small" data-act="copy">複製戰績</button><button class="btn small" data-act="export" data-kind="all">匯出全部每球紀錄</button><button class="btn small ghost" data-act="askClear">清除</button></div></div>
+    ${ui.confirm==='clear'?`<div class="confirm"><b>刪除全部 ${H.length} 場紀錄？</b><span class="hint">刪了就找不回來。</span>
+      <div class="row"><button class="btn small" data-act="cancel">保留</button><button class="btn small" style="color:var(--bad)" data-act="clearHist">全部刪除</button></div></div>`:''}
+    <ul class="hist">${H.map(h=>{const w=h.players.find(p=>p.id===h.winner);const sorted=[...h.players].sort((a,b)=>b.score-a.score);
+      return `<li><div class="top"><span class="w">👑 ${esc(w?w.name:'?')} <span class="num" style="font-size:18px">${w?w.score:''}</span></span><span class="meta">${fmtDate(h.start)}・${fmtTime(h.end-h.start)}</span></div>
+      <div class="scores">${sorted.map(p=>`${esc(p.name)} <b>${p.score}</b>`).join('・')}</div>
+      <div class="meta">搶 ${h.rules.target}・${h.rules.scoring==='split'?'1/2 分制':'全 1 分'}・${h.rules.dribbles?'限 '+h.rules.dribbles+' 運':'不限運'}${h.rules.penalty?'・失誤扣分':''}・${h.possessions} 球</div>
+      ${h.log?`<div><button class="btn small" data-act="export" data-kind="hist" data-id="${h.id}">匯出這場每球紀錄</button></div>`:''}</li>`}).join('')}</ul>
+  </section>`;
+}
+
+/* ---------- export ---------- */
+const RESULT={make:'進球',miss:'沒進',viol:'失誤'};
+function csvCell(v){v=String(v??'');return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function gameRows(src){ // src: {start, players:[{id,name}], log}
+  const nm=Object.fromEntries(src.players.map(p=>[p.id,p.name]));
+  const d=new Date(src.start);const date=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return (src.log||[]).map((e,i)=>[date,i+1,fmtTime(e.t),nm[e.off]||'?',nm[e.def]||'?',e.spot||'',RESULT[e.type]||e.type,e.pts>0?'+'+e.pts:e.pts<0?String(e.pts):'0',e.score]);
+}
+function buildExport(kind,id){
+  const head=['比賽開始','球序','比賽時間','進攻','防守','開球點','結果','得分','進攻者累計'];
+  let rows=[],name='';
+  if(kind==='game'){const g=S.game;rows=gameRows({start:g.start,players:g.roster,log:g.log});name='這場'}
+  else if(kind==='hist'){const h=S.history.find(x=>x.id===id);if(h){rows=gameRows(h);name=fmtDate(h.start)+' 那場'}}
+  else{[...S.history].reverse().forEach(h=>rows.push(...gameRows(h)));name='全部 '+S.history.filter(h=>h.log).length+' 場'}
+  const csv=[head,...rows].map(r=>r.map(csvCell).join(',')).join('\n');
+  const stamp=new Date().toISOString().slice(0,10);
+  return {csv,count:rows.length,name,file:'單挑之王-每球紀錄-'+stamp+'.csv'};
+}
+const STANDALONE=!!window.KOTC_STANDALONE;
+const capShare=()=>{try{return window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.Share}catch(e){return null}};
+const canShare=()=>!!capShare()||(STANDALONE&&!!navigator.share);
+const canDownload=()=>STANDALONE&&!window.Capacitor;
+async function doExport(how){
+  const x=ui.export;if(!x)return;
+  try{
+    if(how==='copy'){await navigator.clipboard.writeText(x.csv);toast('已複製 '+x.count+' 球，可貼到 Excel 或 Google 試算表')}
+    else if(how==='download'){const blob=new Blob(['﻿'+x.csv],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=x.file;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast('已下載 '+x.file)}
+    else if(how==='share'){const cs=capShare();if(cs)await cs.share({title:x.file,text:x.csv,dialogTitle:'分享每球紀錄'});else await navigator.share({title:x.file,text:x.csv})}
+  }catch(e){
+    if(e&&e.name==='AbortError')return;
+    toast(how==='copy'?'無法自動複製，請長按下方文字全選複製':'沒有成功，請改用複製');
+    const ta=$('exportBox');if(ta){ta.focus();ta.select()}
+  }
+}
+
+function renderLayer(){
+  const g=S.game;let html='';
+  if(ui.export){const x=ui.export;
+    html+=`<div class="overlay" role="dialog" aria-modal="true" aria-label="匯出每球紀錄"><div class="win-card" style="text-align:left">
+      <div class="row" style="justify-content:space-between"><b style="font-size:18px">匯出每球紀錄</b><button class="icon-btn" aria-label="關閉" data-act="closeExport">×</button></div>
+      <span class="hint">${esc(x.name)}・共 ${x.count} 球・CSV 格式，可直接貼到 Excel、Numbers 或 Google 試算表。</span>
+      <textarea id="exportBox" rows="8" readonly style="font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:pre">${esc(x.csv)}</textarea>
+      <div class="row">
+        <button class="btn primary small" data-act="expDo" data-how="copy">複製</button>
+        ${canDownload()?`<button class="btn court small" data-act="expDo" data-how="download">下載 .csv</button>`:''}
+        ${canShare()?`<button class="btn court small" data-act="expDo" data-how="share">分享到 LINE 等</button>`:''}
+      </div>
+    </div></div>`;
+  }
+  if(g&&g.done&&ui.showWin!==false){
+    const w=g.winner,st=g.stats[w];
+    html+=`<div class="overlay" role="dialog" aria-modal="true" aria-label="比賽結果"><div class="win-card">
+      <div class="crown">KING OF THE COURT</div>
+      <div class="name">${esc(nameOf(w))}</div>
+      <div class="final">${g.scores[w]} 分</div>
+      <div class="facts">
+        <div><b>${st.makes}/${st.poss}</b><span>進球/進攻</span></div>
+        <div><b>${st.best}</b><span>最長連進</span></div>
+        <div><b>${fmtTime(g.end-g.start)}</b><span>比賽時間</span></div>
+      </div>
+      <button class="btn primary block" data-act="rematch">再來一場（${esc(nameOf(w))} 先攻）</button>
+      <div class="row" style="justify-content:center">
+        <button class="btn small" data-act="undo">↶ 記錯了，復原</button>
+        <button class="btn small" data-act="toSetup">回到設定</button>
+        <button class="btn small ghost" data-act="hideWin">看這場數據</button>
+      </div>
+    </div></div>`;
+  }
+  if(ui.toast)html+=`<div class="toast" role="status">${esc(ui.toast)}</div>`;
+  $('layer').innerHTML=html;
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b||b.disabled)return;
+  const a=b.dataset.act,st=S.settings;
+  switch(a){
+    case 'view':view=b.dataset.v;ui.confirm=null;break;
+    case 'set':{const k=b.dataset.k;let v=b.dataset.v;if(k==='target'||k==='dribbles')v=+v;st[k]=v;break}
+    case 'tog':st[b.dataset.k]=!st[b.dataset.k];if(b.dataset.k==='voice'&&st.voice){save();speak('語音報分已開啟')}break;
+    case 'rm':S.players.splice(+b.dataset.i,1);break;
+    case 'up':{const i=+b.dataset.i;const p=S.players;[p[i-1],p[i]]=[p[i],p[i-1]];break}
+    case 'shuffle':{const p=S.players;for(let i=p.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]]}break}
+    case 'pickGroup':{
+      const g=S.groups.find(x=>x.id===b.dataset.id);if(!g)return;
+      ui.group=g.id;ui.renaming=false;ui.confirm=null;
+      if(g.players.length){S.players=g.players.map(n=>({id:uid(),name:n}));toast('已帶入「'+g.name+'」'+g.players.length+' 人')}
+      break;
+    }
+    case 'addGroup':{const g={id:uid(),name:nextGroupName(),players:[]};S.groups.push(g);ui.group=g.id;ui.renaming=false;break}
+    case 'saveGroup':{const g=S.groups.find(x=>x.id===ui.group);if(!g)return;g.players=S.players.map(p=>p.name);toast('已存進「'+g.name+'」');break}
+    case 'renameGroup':ui.renaming=true;render();{const i=$('groupName');if(i){i.focus();i.select()}}return;
+    case 'cancelRename':ui.renaming=false;break;
+    case 'saveRename':{
+      const g=S.groups.find(x=>x.id===ui.group);const n=(($('groupName')||{}).value||'').trim().slice(0,12);
+      if(!g||!n){toast('名稱不能是空的');return}
+      if(S.groups.some(x=>x!==g&&x.name===n)){toast('已經有同名的群組');return}
+      g.name=n;ui.renaming=false;break;
+    }
+    case 'askDelGroup':ui.confirm='delGroup';break;
+    case 'delGroup':S.groups=S.groups.filter(x=>x.id!==ui.group);ui.group=null;ui.confirm=null;break;
+    case 'addOne':if(S.players.length<MAX_PLAYERS)S.players.push({id:uid(),name:nextDefaultName()});break;
+    case 'resetPlayers':S.players=defaults(5);break;
+    case 'togPaste':ui.paste=!ui.paste;break;
+    case 'importList':{
+      let raw=($('pasteBox')||{}).value||'';
+      const unlocked=await unlockRoster(raw.trim().toUpperCase());
+      if(unlocked)raw=unlocked.join('\n');
+      const names=[...new Set(raw.split(/[\n,，、\s]+/).map(s=>s.trim().slice(0,12)).filter(Boolean))].slice(0,MAX_PLAYERS);
+      if(names.length<1){toast('沒有讀到名字');return}
+      S.players=names.map(n=>({id:uid(),name:n}));ui.paste=false;
+      const g=b.dataset.save&&S.groups.find(x=>x.id===ui.group);
+      if(g){g.players=names.slice();toast('已帶入 '+names.length+' 人並存進「'+g.name+'」')}else toast('已帶入 '+names.length+' 人');
+      break;
+    }
+    case 'start':ui.showWin=true;startGame(S.players.map(p=>p.id));break;
+    case 'make':play('make',+b.dataset.p);return;
+    case 'miss':play('miss');return;
+    case 'viol':play('viol');return;
+    case 'drib':ui.dribble++;if(ui.dribble===S.game.rules.dribbles)speak('收');break;
+    case 'dribReset':ui.dribble=0;break;
+    case 'undo':ui.showWin=true;undo();return;
+    case 'askEnd':ui.confirm='end';break;
+    case 'askClear':ui.confirm='clear';break;
+    case 'cancel':ui.confirm=null;break;
+    case 'abandon':abandon();return;
+    case 'clearHist':S.history=[];ui.confirm=null;break;
+    case 'rematch':ui.showWin=true;rematch();return;
+    case 'toSetup':S.game=null;ui.showWin=true;view='game';break;
+    case 'hideWin':ui.showWin=false;break;
+    case 'showWin':ui.showWin=true;break;
+    case 'export':{const x=buildExport(b.dataset.kind,b.dataset.id);if(!x.count){toast('還沒有可匯出的紀錄');return}ui.export=x;ui.showWin=false;renderLayer();return}
+    case 'closeExport':ui.export=null;renderLayer();return;
+    case 'expDo':doExport(b.dataset.how);return;
+    case 'copy':{
+      const txt=S.history.slice(0,20).map(h=>{const s=[...h.players].sort((a,b)=>b.score-a.score);return `${fmtDate(h.start)} 搶${h.rules.target}：`+s.map(p=>`${p.name} ${p.score}`).join('、')+`（${fmtTime(h.end-h.start)}）`}).join('\n');
+      try{await navigator.clipboard.writeText('單挑之王戰績\n'+txt);toast('已複製')}catch(err){toast('無法複製，請手動選取')}
+      return;
+    }
+  }
+  save();render();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter')return;
+  if(e.target.classList&&e.target.classList.contains('nm-in'))e.target.blur();
+  if(e.target.id==='groupName'){const b=document.querySelector('[data-act="saveRename"]');if(b)b.click()}
+});
+document.addEventListener('change',e=>{
+  if(e.target.dataset&&e.target.dataset.pid){
+    const p=S.players.find(x=>x.id===e.target.dataset.pid);if(!p)return;
+    const n=e.target.value.trim().slice(0,12);
+    if(!n){e.target.value=p.name;return}
+    if(S.players.some(x=>x!==p&&x.name===n)){toast('名字重複了');e.target.value=p.name;return}
+    p.name=n;save();return;
+  }
+  if(e.target.id==='customTarget'){const v=parseInt(e.target.value,10);if(v>0&&v<100){S.settings.target=v;save();render()}}
+});
+
+render();
+})();
+</script>

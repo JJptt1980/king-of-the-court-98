@@ -1,0 +1,10 @@
+node_modules/
+www/
+*.apk
+*.aab
+*.keystore
+*.jks
+.DS_Store
+.claude/
+# Private roster lists. Only the encrypted form in src/app.html is committed.
+rosters.local.json

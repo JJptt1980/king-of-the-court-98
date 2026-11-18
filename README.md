@@ -5,9 +5,9 @@
 <h3 align="center">進球留下，沒進下去。先到 12 分，就是球場之王。</h3>
 
 <p align="center">
-  <a href="https://killnopig.github.io/king-of-the-court-98/"><b>▶ 立刻開打（網頁版）</b></a>
+  <a href="https://jjptt1980.github.io/king-of-the-court-98/"><b>▶ 立刻開打（網頁版）</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/killnopig/king-of-the-court-98/releases/latest"><b>⬇ 下載 Android APK</b></a>
+  <a href="https://github.com/JJptt1980/king-of-the-court-98/releases/latest"><b>⬇ 下載 Android APK</b></a>
 </p>
 
 ---
@@ -72,13 +72,13 @@
 
 **手機瀏覽器（iPhone、Android 都可以）**
 
-1. 打開 [killnopig.github.io/king-of-the-court-98](https://killnopig.github.io/king-of-the-court-98/)。
+1. 打開 [jjptt1980.github.io/king-of-the-court-98](https://jjptt1980.github.io/king-of-the-court-98/)。
 2. 從瀏覽器選單選「加到主畫面」。
 3. 之後就像 App 一樣從桌面打開，沒網路也能用。
 
 **Android App**
 
-1. 到 [Releases](https://github.com/killnopig/king-of-the-court-98/releases/latest) 下載 `.apk` 檔。
+1. 到 [Releases](https://github.com/JJptt1980/king-of-the-court-98/releases/latest) 下載 `.apk` 檔。
 2. 安裝時允許「安裝未知來源的應用程式」。目前是測試版簽章，手機跳出警告是正常的。
 
 ## 你的資料留在你的手機

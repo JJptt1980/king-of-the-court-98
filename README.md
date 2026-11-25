@@ -122,6 +122,8 @@ android/                Capacitor Android 專案
 
 ## 授權
 
-[MIT License](LICENSE)。可以自由使用、修改、散布，只要保留版權聲明。
+從 2026-11-26 起，之後的版本改用 [PolyForm Noncommercial 1.0.0](LICENSE) 授權：個人、學習、非營利用途免費使用；商業用途需要另外購買商用授權，請到本專案的 GitHub Issues 聯絡。
+
+在這之前已發布的版本，仍依當時的 MIT 授權。
 
 <p align="center"><sub>Made for CLUTCH SQUAD・下一球，換你上。</sub></p>
